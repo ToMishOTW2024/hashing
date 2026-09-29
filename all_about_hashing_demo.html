@@ -1,0 +1,1552 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Hashing Lab — From Hash Tables to LSH and Consistent Hashing</title>
+  <style>
+    :root {
+      --bg: #08111f;
+      --panel: #101d31;
+      --panel2: #0d1728;
+      --text: #edf4ff;
+      --muted: #a9bad3;
+      --line: #263b59;
+      --accent: #6ee7ff;
+      --accent2: #9ef01a;
+      --warn: #ffd166;
+      --danger: #ff6b6b;
+      --purple: #c9a7ff;
+      --good: #64e6a7;
+      --shadow: 0 12px 35px rgba(0,0,0,.26);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 0%, #142a49 0, transparent 30%),
+        radial-gradient(circle at 90% 10%, #19374d 0, transparent 26%),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    header {
+      padding: 48px 24px 28px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(8,17,31,.76);
+      backdrop-filter: blur(8px);
+    }
+
+    .wrap { max-width: 1260px; margin: 0 auto; }
+
+    h1, h2, h3 { line-height: 1.14; }
+    h1 {
+      max-width: 970px;
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4.2rem);
+      letter-spacing: -0.04em;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: clamp(1.55rem, 3vw, 2.3rem);
+      letter-spacing: -0.025em;
+    }
+
+    h3 { margin: 0 0 8px; font-size: 1.08rem; }
+
+    p { margin: 8px 0; color: var(--muted); }
+
+    .lead {
+      max-width: 910px;
+      margin-top: 16px;
+      color: #d9e7fc;
+      font-size: 1.1rem;
+    }
+
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 22px;
+    }
+
+    nav a, button {
+      border: 1px solid var(--line);
+      background: #13243b;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 12px;
+      text-decoration: none;
+      cursor: pointer;
+      font: inherit;
+      transition: .16s ease;
+    }
+
+    nav a:hover, button:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+      background: #183352;
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, #0f7995, #1e506f);
+      border-color: #4ad3f3;
+    }
+
+    button.good {
+      background: #174b39;
+      border-color: #3ecf94;
+    }
+
+    button.warn {
+      background: #4c3a15;
+      border-color: #dcae46;
+    }
+
+    main { padding: 34px 24px 70px; }
+
+    section {
+      margin: 30px 0;
+      padding: 25px;
+      background: rgba(16,29,49,.88);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .grid { display: grid; gap: 16px; }
+    .two { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .three { grid-template-columns: repeat(3, minmax(0,1fr)); }
+
+    @media (max-width: 900px) {
+      .two, .three { grid-template-columns: 1fr; }
+      section { padding: 18px; }
+    }
+
+    .card {
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(8,17,31,.48);
+    }
+
+    .callout {
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      background: rgba(44,122,162,.12);
+      color: #d7ebff;
+      margin: 14px 0;
+    }
+
+    .callout.warning {
+      border-color: var(--warn);
+      background: rgba(255,209,102,.08);
+    }
+
+    .callout.good {
+      border-color: var(--good);
+      background: rgba(100,230,167,.08);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin: 13px 0;
+    }
+
+    input, select, textarea {
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 9px 10px;
+      background: #081422;
+      font: inherit;
+    }
+
+    input[type="number"] { width: 85px; }
+    input[type="text"] { min-width: 180px; }
+    textarea { width: 100%; min-height: 110px; resize: vertical; }
+
+    label {
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    @media (max-width: 720px) {
+      .metric-row { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    .metric {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #0b1727;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: .76rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .metric .value {
+      margin-top: 4px;
+      color: var(--accent);
+      font-weight: 750;
+      font-size: 1.28rem;
+    }
+
+    .bucket-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+      gap: 9px;
+      margin-top: 13px;
+    }
+
+    .bucket {
+      min-height: 92px;
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0a1524;
+      overflow-wrap: anywhere;
+    }
+
+    .bucket.active { border-color: var(--accent); box-shadow: 0 0 0 1px #174f68; }
+    .bucket .idx { color: var(--accent2); font-family: ui-monospace, monospace; font-size: .8rem; }
+    .entry {
+      display: inline-block;
+      margin: 4px 3px 0 0;
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: #1b3856;
+      color: #e7f2ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: .78rem;
+    }
+
+    .entry.probe { background: #664b16; }
+    .entry.hit { background: #16533e; outline: 1px solid #58e3a2; }
+    .entry.deleted { opacity: .55; text-decoration: line-through; }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: .84rem;
+      margin: 10px 0;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 100px;
+      font-size: .78rem;
+      border: 1px solid var(--line);
+      color: #d9e9fc;
+    }
+
+    .pill.cyan { border-color: #4eb7d3; color: var(--accent); }
+    .pill.green { border-color: #4aae82; color: var(--good); }
+    .pill.yellow { border-color: #c69a36; color: var(--warn); }
+    .pill.purple { border-color: #9679d4; color: var(--purple); }
+
+    table {
+      width: 100%;
+      margin-top: 12px;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: .92rem;
+    }
+
+    th, td {
+      padding: 10px;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+    }
+
+    th { background: #142640; color: #dff3ff; }
+    tr:last-child td { border-bottom: none; }
+
+    code, .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    code {
+      color: #cdeeff;
+      background: #07111d;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    .formula {
+      padding: 12px;
+      border-radius: 9px;
+      background: #07111d;
+      border: 1px solid #1e3753;
+      font-family: ui-monospace, monospace;
+      color: #d8f2ff;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+
+    .bar {
+      height: 11px;
+      min-width: 2px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), #3ecf94);
+    }
+
+    .distribution { display: grid; gap: 8px; margin-top: 13px; }
+    .dist-row { display: grid; grid-template-columns: 100px 1fr 60px; align-items: center; gap: 9px; }
+    .dist-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d2e6ff; }
+    .dist-row .count { color: var(--muted); font-family: ui-monospace, monospace; }
+
+    canvas {
+      width: 100%;
+      max-width: 600px;
+      height: auto;
+      display: block;
+      margin: 12px auto;
+      background: #07111d;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    .small { color: var(--muted); font-size: .86rem; }
+    .status { color: var(--accent2); font-family: ui-monospace, monospace; min-height: 1.5em; }
+    .scroll { overflow-x: auto; }
+    a { color: #78dcff; }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="wrap">
+    <h1>Hashing Lab: from one array slot to web-scale similarity search</h1>
+    <p class="lead">
+      Hashing is not one algorithm. It is a family of ideas that trades exact structure for
+      fast placement, compact fingerprints, stable distribution, or approximate similarity.
+      This lab starts with a RAM array and ends with distributed systems and near-duplicate search.
+    </p>
+    <nav>
+      <a href="#bottom-up">Bottom up</a>
+      <a href="#table">Hash table</a>
+      <a href="#complexity">Complexity</a>
+      <a href="#hardware">Hardware</a>
+      <a href="#similarity">Similarity hashing</a>
+      <a href="#distribution">Consistent hashing</a>
+      <a href="#future">State of the art</a>
+      <a href="#references">References</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="bottom-up">
+    <h2>1. Bottom up: what a hash is trying to buy</h2>
+    <p>
+      An array can retrieve item <code>A[i]</code> in constant time because the address is computed directly:
+      base address + <code>i × element-size</code>. The hard part is that real keys are not compact array
+      indexes: they are strings, user IDs, packets, files, objects, and vectors.
+    </p>
+
+    <div class="formula">
+      arbitrary key → hash function h(key) → integer fingerprint → table slot h(key) mod m
+    </div>
+
+    <div class="grid three">
+      <div class="card">
+        <h3>Exact lookup</h3>
+        <p>
+          “Find customer <code>mishfaq@example.org</code> exactly.” Hash tables, caches, compiler symbol
+          tables, database indexes, and packet-flow maps commonly use this form.
+        </p>
+        <span class="pill cyan">Goal: equality</span>
+      </div>
+      <div class="card">
+        <h3>Similarity lookup</h3>
+        <p>
+          “Find documents that are nearly the same.” MinHash, SimHash, and LSH deliberately make similar
+          inputs more likely to collide.
+        </p>
+        <span class="pill purple">Goal: near neighbors</span>
+      </div>
+      <div class="card">
+        <h3>Stable placement</h3>
+        <p>
+          “Which server owns this key after the cluster changes?” Consistent-hashing families minimize
+          movement rather than merely spreading keys.
+        </p>
+        <span class="pill green">Goal: minimal remapping</span>
+      </div>
+    </div>
+
+    <div class="callout">
+      The word “collision” means two different inputs produce the same hash output. For a regular hash
+      table, collisions are an inconvenience to resolve. For locality-sensitive hashing, collision is often
+      the signal that two objects may be similar.
+    </div>
+  </section>
+
+  <section id="table">
+    <h2>2. Interactive exact hash table</h2>
+    <p>
+      Try keys such as <code>alice</code>, <code>bob</code>, <code>cat</code>, or switch to the deliberately
+      bad <code>length</code> hash and use similarly sized words. Watch collisions, probes, load factor, and
+      a resize. Chaining stores a small list per bucket; open addressing keeps entries in the array and probes
+      for another slot.
+    </p>
+
+    <div class="controls">
+      <input id="keyInput" type="text" value="alice" placeholder="key">
+      <input id="valueInput" type="text" value="42" placeholder="value">
+      <button class="primary" id="insertBtn">Insert / update</button>
+      <button id="findBtn">Find</button>
+      <button id="deleteBtn">Delete</button>
+      <button class="warn" id="randomBtn">Insert 8 random keys</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+
+    <div class="controls">
+      <label>Collision strategy
+        <select id="strategy">
+          <option value="chaining">Separate chaining</option>
+          <option value="linear">Open addressing: linear probing</option>
+        </select>
+      </label>
+      <label>Hash function
+        <select id="hashMode">
+          <option value="mix">Seeded mixed hash</option>
+          <option value="length">Bad demo: key length</option>
+          <option value="sum">Weak demo: character sum</option>
+        </select>
+      </label>
+      <label>Initial capacity
+        <select id="capacity">
+          <option value="8">8</option>
+          <option value="16">16</option>
+          <option value="32">32</option>
+        </select>
+      </label>
+      <button id="resetTable">Reset configuration</button>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric"><div class="label">Capacity m</div><div id="capMetric" class="value">8</div></div>
+      <div class="metric"><div class="label">Items n</div><div id="sizeMetric" class="value">0</div></div>
+      <div class="metric"><div class="label">Load α = n/m</div><div id="loadMetric" class="value">0.00</div></div>
+      <div class="metric"><div class="label">Last probes</div><div id="probeMetric" class="value">0</div></div>
+    </div>
+
+    <div id="tableStatus" class="status">Ready.</div>
+
+    <div class="legend">
+      <span class="pill cyan">cyan border: start slot</span>
+      <span class="pill yellow">gold: inspected probe</span>
+      <span class="pill green">green: match</span>
+    </div>
+
+    <div id="bucketGrid" class="bucket-grid"></div>
+
+    <div class="grid two" style="margin-top:16px">
+      <div class="card">
+        <h3>Why ordinary hashing is fast</h3>
+        <p>
+          With a well-distributed hash, expected bucket occupancy is the load factor
+          \( \alpha = n/m \). In chaining, expected work is \(O(1+\alpha)\). Keeping
+          \(\alpha\) bounded—often roughly below 0.7 to 0.9 depending on the design—keeps operations
+          near constant time.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Why it can still be slow</h3>
+        <p>
+          Worst case is \(O(n)\): many keys can collide, a poor hash can cluster keys, or an attacker can
+          choose adversarial inputs. Security-sensitive interfaces use keyed or randomized hashing so an
+          adversary cannot cheaply precompute a collision flood.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="complexity">
+    <h2>3. Where “\(O(1)\)” really comes from</h2>
+    <p>
+      Hash-table \(O(1)\) is normally an expected and/or amortized statement. It relies on bounded load,
+      a sufficiently random-looking hash, and the usual RAM-model assumption that machine-word operations
+      are constant time.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3>Expected constant work</h3>
+        <div class="formula">E[work] ≈ O(1 + α)</div>
+        <p>
+          If the table stays at a bounded load factor, the expected number of collisions or probes stays
+          bounded even as \(n\) grows. A universal hash family formalizes a useful promise:
+          for distinct keys \(x,y\), the probability of collision under a random choice of hash function is
+          at most about \(1/m\).
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Amortized constant resizing</h3>
+        <div class="formula">1 + 2 + 4 + ... + n &lt; 2n</div>
+        <p>
+          A resize is expensive because it allocates a larger array and reinserts all current entries.
+          But when capacity doubles, an item survives many cheap insertions before it is moved again.
+          Over \(n\) insertions, total copying remains \(O(n)\), making average cost per insertion
+          \(O(1)\) amortized.
+        </p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Operation / structure</th>
+          <th>Typical guarantee</th>
+          <th>Worst case</th>
+          <th>Space</th>
+          <th>When it wins</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Chained hash table</td>
+          <td>Expected \(O(1+\alpha)\)</td>
+          <td>\(O(n)\)</td>
+          <td>\(O(n+m)\)</td>
+          <td>Simple deletion; stable references; moderate load</td>
+        </tr>
+        <tr>
+          <td>Open addressing</td>
+          <td>Expected \(O(1)\) below its load limit</td>
+          <td>\(O(n)\)</td>
+          <td>\(O(m)\)</td>
+          <td>Cache-friendly, compact in-memory tables</td>
+        </tr>
+        <tr>
+          <td>Cuckoo hashing</td>
+          <td>Expected insertion; lookup can be worst-case \(O(1)\)</td>
+          <td>Insertion/rebuild may be costly</td>
+          <td>Near-linear</td>
+          <td>Read-heavy systems requiring predictable lookup probes</td>
+        </tr>
+        <tr>
+          <td>Balanced tree</td>
+          <td>\(O(\log n)\)</td>
+          <td>\(O(\log n)\)</td>
+          <td>\(O(n)\)</td>
+          <td>Sorted traversal, ranges, deterministic bounds</td>
+        </tr>
+        <tr>
+          <td>Sorted array + binary search</td>
+          <td>Lookup \(O(\log n)\)</td>
+          <td>Insert/delete \(O(n)\)</td>
+          <td>\(O(n)\)</td>
+          <td>Mostly-read static data; compact ordered storage</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout warning">
+      A hash table is not “better than a tree” in every task. If you need “all keys between 10,000 and
+      20,000,” sorted order matters, and a B-tree or balanced tree is the appropriate baseline.
+    </div>
+  </section>
+
+  <section id="hardware">
+    <h2>4. Real hardware: the memory system often dominates</h2>
+    <p>
+      Modern CPUs can perform arithmetic very quickly, but a pointer chase that misses cache can cost far
+      more than the hash calculation. This is why many production hash tables prefer contiguous arrays and
+      small metadata bytes over linked lists scattered across memory.
+    </p>
+
+    <div class="grid three">
+      <div class="card">
+        <h3>CPU caches</h3>
+        <p>
+          Arrays pack related data into nearby cache lines. Open addressing can inspect nearby slots
+          sequentially; pointer-heavy chaining may require fetching unrelated memory locations.
+        </p>
+        <span class="pill cyan">Locality matters</span>
+      </div>
+      <div class="card">
+        <h3>SIMD group scan</h3>
+        <p>
+          Swiss-table-style designs keep compact control bytes—such as empty/deleted state and a short hash
+          tag—in a contiguous array. One SIMD instruction compares many tags at once; only candidate
+          payloads need full key comparisons.
+        </p>
+        <span class="pill green">Many tags per instruction</span>
+      </div>
+      <div class="card">
+        <h3>Hash calculation</h3>
+        <p>
+          Non-cryptographic functions such as xxHash-family functions aim for speed and distribution.
+          Keyed functions such as SipHash defend hash tables exposed to hostile keys. SIMD-oriented designs
+          such as HighwayHash exploit vector multiply and permutation operations.
+        </p>
+        <span class="pill purple">Speed vs adversaries</span>
+      </div>
+    </div>
+
+    <div class="grid two" style="margin-top:16px">
+      <div class="card">
+        <h3>A realistic lookup path</h3>
+        <ol>
+          <li>Compute a 64-bit hash of the key.</li>
+          <li>Use some bits to choose a starting group or bucket.</li>
+          <li>Use a short fingerprint/tag to reject most non-matches cheaply.</li>
+          <li>Compare full keys only for matching tags.</li>
+          <li>Probe another nearby group if necessary.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Hardware and networking examples</h3>
+        <p>
+          Hardware and software network stacks hash packet tuples such as source/destination IP, ports, and
+          protocol to select a receive queue, connection state, or load-balancer backend. A production
+          Google load-balancing design, Maglev, uses a precomputed lookup table to make the per-flow choice
+          effectively one table access while preserving substantial assignment stability after backend
+          failures or changes. [33][37]
+        </p>
+      </div>
+    </div>
+
+    <div class="callout good">
+      Practical lesson: asymptotic notation predicts scaling, but it does not count cache misses, branch
+      mispredictions, contention, or memory allocation. For a hot lookup path, those details frequently
+      determine the winning hash-table design.
+    </div>
+  </section>
+
+  <section id="similarity">
+    <h2>5. Similarity hashing: collisions on purpose</h2>
+    <p>
+      Standard hashing tries to make even tiny input changes look unrelated. Similarity hashing reverses
+      that design: related objects should collide more often than unrelated ones. The result is approximate
+      search, not proof of equality.
+    </p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3>Document A</h3>
+        <textarea id="docA">hash tables make exact key lookup fast in memory</textarea>
+      </div>
+      <div class="card">
+        <h3>Document B</h3>
+        <textarea id="docB">hash tables make fast exact lookup for keys in memory</textarea>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label>Shingle size
+        <input id="shingleSize" type="number" min="1" max="5" value="2">
+      </label>
+      <label>MinHash permutations
+        <input id="minhashK" type="number" min="8" max="256" step="8" value="64">
+      </label>
+      <label>SimHash bits
+        <select id="simhashBits">
+          <option value="32">32</option>
+          <option value="64" selected>64</option>
+        </select>
+      </label>
+      <button class="primary" id="compareDocs">Compare documents</button>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric"><div class="label">Exact Jaccard</div><div id="jaccardMetric" class="value">—</div></div>
+      <div class="metric"><div class="label">MinHash estimate</div><div id="minhashMetric" class="value">—</div></div>
+      <div class="metric"><div class="label">SimHash Hamming</div><div id="hammingMetric" class="value">—</div></div>
+      <div class="metric"><div class="label">Cosine estimate</div><div id="cosineMetric" class="value">—</div></div>
+    </div>
+
+    <div id="similarityStatus" class="status">Edit both documents, then compare.</div>
+
+    <div class="grid three" style="margin-top:16px">
+      <div class="card">
+        <h3>MinHash</h3>
+        <p>
+          First convert an object into a set, such as word or character shingles. Apply random-looking
+          permutations/hashes and retain each minimum. The key identity is:
+        </p>
+        <div class="formula">P[minhash(A) = minhash(B)] = Jaccard(A,B)</div>
+        <p>
+          Thus the fraction of matching signature components estimates set overlap.
+        </p>
+      </div>
+      <div class="card">
+        <h3>SimHash</h3>
+        <p>
+          Convert features into signed random projections, sum them, and keep only each sign bit.
+          Similar weighted vectors tend to have a small Hamming distance. SimHash targets cosine-style
+          similarity rather than Jaccard set resemblance.
+        </p>
+      </div>
+      <div class="card">
+        <h3>LSH banding</h3>
+        <p>
+          Instead of comparing every pair among \(N\) documents—\(O(N^2)\) candidate pairs—split a
+          MinHash signature into bands and index bands in hash tables. Only documents sharing a band become
+          candidates for an exact verification step.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout">
+      Example: plagiarism triage or web-page deduplication can first use shingle-based MinHash/LSH to find a
+      tiny candidate set, then run a more exact and expensive comparison only on those candidates. That is
+      usually much cheaper than comparing every document to every other document.
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Method</th>
+          <th>Input representation</th>
+          <th>Similarity preserved</th>
+          <th>Useful scenario</th>
+          <th>Important limitation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Ordinary hash, e.g. SHA-like fingerprint</td>
+          <td>Any byte sequence</td>
+          <td>Exact equality only</td>
+          <td>Integrity checks; exact deduplication</td>
+          <td>A one-character edit yields an unrelated output</td>
+        </tr>
+        <tr>
+          <td>MinHash</td>
+          <td>Sets or sparse binary features</td>
+          <td>Jaccard: \( |A∩B| / |A∪B| \)</td>
+          <td>Near-duplicate pages, item-set similarity</td>
+          <td>Less natural for weighted semantic embeddings</td>
+        </tr>
+        <tr>
+          <td>SimHash / random hyperplanes</td>
+          <td>Weighted feature vectors</td>
+          <td>Cosine similarity</td>
+          <td>Text fingerprints; high-dimensional sparse vectors</td>
+          <td>Hamming threshold needs empirical tuning</td>
+        </tr>
+        <tr>
+          <td>LSH family</td>
+          <td>Depends on chosen family</td>
+          <td>Metric-specific, approximate</td>
+          <td>Candidate generation at scale</td>
+          <td>False positives and false negatives are expected</td>
+        </tr>
+        <tr>
+          <td>Vector ANN, e.g. graph/index methods</td>
+          <td>Dense learned embeddings</td>
+          <td>Usually cosine, dot product, or Euclidean</td>
+          <td>Semantic retrieval and RAG</td>
+          <td>More memory/engineering; embedding quality matters</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout warning">
+      Do not choose MinHash because it “sounds similar to SimHash.” Choose by the similarity you actually
+      mean. MinHash estimates Jaccard/resemblance; SimHash arises from random-hyperplane methods and is
+      aligned with cosine similarity. [16][18]
+    </div>
+  </section>
+
+  <section id="distribution">
+    <h2>6. Consistent hashing: stable ownership when servers change</h2>
+    <p>
+      Suppose a cache cluster has \(N\) servers. A naïve placement rule is
+      <code>server = hash(key) mod N</code>. It balances keys well, but changing \(N\) usually changes the
+      answer for most keys. That means broad cache invalidation and heavy data migration.
+    </p>
+
+    <div class="controls">
+      <label>Number of keys
+        <input id="keyCount" type="number" min="100" max="20000" step="100" value="1200">
+      </label>
+      <label>Virtual nodes per server
+        <input id="vnodes" type="number" min="1" max="200" value="40">
+      </label>
+      <label>Algorithm
+        <select id="distAlgo">
+          <option value="mod">Baseline: hash(key) mod N</option>
+          <option value="ring" selected>Ring consistent hash + virtual nodes</option>
+          <option value="jump">Jump Consistent Hash</option>
+          <option value="hrw">Rendezvous / HRW hashing</option>
+        </select>
+      </label>
+      <button class="primary" id="runDistribution">Simulate assignment</button>
+      <button class="good" id="addServer">Add server</button>
+      <button class="warn" id="removeServer">Remove server</button>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric"><div class="label">Servers</div><div id="serverMetric" class="value">4</div></div>
+      <div class="metric"><div class="label">Moved after change</div><div id="movedMetric" class="value">—</div></div>
+      <div class="metric"><div class="label">Largest server share</div><div id="maxShareMetric" class="value">—</div></div>
+      <div class="metric"><div class="label">Assignment work</div><div id="workMetric" class="value">—</div></div>
+    </div>
+
+    <canvas id="ringCanvas" width="600" height="600"></canvas>
+    <div id="distributionStatus" class="status">Run the simulation, then add or remove a server.</div>
+    <div id="distributionBars" class="distribution"></div>
+
+    <div class="grid two" style="margin-top:18px">
+      <div class="card">
+        <h3>Ring + virtual nodes</h3>
+        <p>
+          Hash both keys and servers onto a circular numeric range; a key belongs to the next server clockwise.
+          A new physical server takes responsibility mainly for nearby key intervals. Multiple virtual positions
+          per server improve balance because one random point per server can leave uneven arcs.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Alternatives and trade-offs</h3>
+        <p>
+          Jump Consistent Hash uses almost no storage and provides excellent balance when buckets are
+          numbered sequentially; its original formulation is less suitable when arbitrary named nodes must
+          disappear. Rendezvous/HRW chooses the server with the best score for each key; it is very simple
+          and stable but basic lookup evaluates every server, \(O(N)\). [32][5]
+        </p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Placement rule</th>
+          <th>What changes when one server is added?</th>
+          <th>Lookup cost</th>
+          <th>Best fit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>hash(key) mod N</code></td>
+          <td>Often most keys move</td>
+          <td>\(O(1)\)</td>
+          <td>Fixed-size sharding; no membership churn</td>
+        </tr>
+        <tr>
+          <td>Consistent hash ring + virtual nodes</td>
+          <td>Roughly the new server’s eventual share moves</td>
+          <td>\(O(\log V)\) with sorted vnode positions</td>
+          <td>Caches and distributed stores with named nodes</td>
+        </tr>
+        <tr>
+          <td>Jump Consistent Hash</td>
+          <td>About \(1/(N+1)\) of keys move for an added bucket</td>
+          <td>Expected \(O(\log N)\), \(O(1)\) memory</td>
+          <td>Sequential storage buckets</td>
+        </tr>
+        <tr>
+          <td>Rendezvous / HRW</td>
+          <td>Only keys preferring the new server move</td>
+          <td>\(O(N)\) basic form</td>
+          <td>Small-to-medium membership sets; simple routing</td>
+        </tr>
+        <tr>
+          <td>Maglev table</td>
+          <td>Designed for minimal disruption and good balance</td>
+          <td>\(O(1)\) table lookup</td>
+          <td>High-throughput network load balancing</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="future">
+    <h2>7. Current practice and likely direction</h2>
+
+    <div class="grid two">
+      <div class="card">
+        <h3>Standard/randomized hashing</h3>
+        <ul>
+          <li>Fast in-memory maps increasingly use compact metadata, open addressing, and SIMD group scans rather than pointer-heavy chains.</li>
+          <li>Universal or sufficiently independent randomized families remain important for analysis and resistance to pathological key patterns.</li>
+          <li>Keyed hashes are essential at hostile boundaries, where input-controlled collision attacks can turn nominal \(O(1)\) behavior into a denial-of-service risk.</li>
+          <li>Cuckoo variants and bucketized designs offer bounded or very short lookup paths, especially appealing for read-heavy systems.</li>
+          <li>Hardware-aware design continues to favor fewer cache misses and more predictable branches, even when two choices share the same Big-O notation.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Similarity-based hashing</h3>
+        <ul>
+          <li>MinHash remains a practical baseline for Jaccard-style set similarity, with one-permutation and densification techniques reducing signature-generation cost. [17]</li>
+          <li>SimHash remains useful for inexpensive near-duplicate fingerprinting, especially where a compact Hamming-distance representation is desirable.</li>
+          <li>For dense neural embeddings, graph-based approximate-nearest-neighbor indexes often dominate operational semantic search; LSH remains valuable when its probabilistic guarantee matches the metric, streaming constraints, privacy approach, or distributed architecture.</li>
+          <li>Hybrid retrieval systems increasingly combine lexical signals, compact sketches, metadata filters, and embedding search rather than treating any single index as universal.</li>
+          <li>Privacy-preserving and federated similarity estimation are active directions, including MinHash-based approaches under local differential privacy. [20]</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      A useful design rule: first name the quantity you must preserve—exact equality, Jaccard overlap,
+      cosine similarity, range order, stable server ownership, or cryptographic integrity. Then select a hash
+      family and data layout. “Use hashing” is not yet a complete engineering decision.
+    </div>
+  </section>
+
+  <section id="references">
+    <h2>8. References and further reading</h2>
+    <p>These are strong starting points for a deeper, source-based treatment.</p>
+    <ul>
+      <li><a href="https://www.cs.cornell.edu/courses/cs312/2008sp/lectures/lec20.html" target="_blank" rel="noopener">Cornell: Hash tables and amortized analysis</a> — a clear derivation of amortized \(O(1)\) resizing. [1]</li>
+      <li><a href="https://cglab.ca/~morin/teaching/5408/notes/hashing.pdf" target="_blank" rel="noopener">Pat Morin, Hashing notes</a> — universal hashing and expected \(O(1+\alpha)\) operations. [3]</li>
+      <li><a href="https://arxiv.org/html/1505.01523v5" target="_blank" rel="noopener">Thorup, Fast and Powerful Hashing using Tabulation</a> — practical randomized hash families and guarantees. [35]</li>
+      <li><a href="https://research.google/pubs/fast-keyed-hashpseudo-random-function-using-simd-multiply-and-permute/" target="_blank" rel="noopener">Google Research: HighwayHash</a> — a SIMD-oriented keyed hash construction. [19]</li>
+      <li><a href="https://github.com/Cyan4973/xxHash" target="_blank" rel="noopener">xxHash / XXH3</a> — an example of fast, vectorized non-cryptographic hashing in practice. [24]</li>
+      <li><a href="https://www.cs.princeton.edu/courses/archive/spring04/cos598B/bib/CharikarEstim.pdf" target="_blank" rel="noopener">Charikar, Similarity Estimation Techniques from Rounding Algorithms</a> — foundational random-hyperplane / SimHash-style locality-sensitive hashing. [18]</li>
+      <li><a href="https://proceedings.mlr.press/v33/shrivastava14.pdf" target="_blank" rel="noopener">Shrivastava and Li, In Defense of MinHash Over SimHash</a> — clarifies Jaccard versus cosine use cases. [16]</li>
+      <li><a href="https://arxiv.org/abs/1406.2294" target="_blank" rel="noopener">Lamping and Veach, Jump Consistent Hash</a> — minimal-memory consistent hashing for sequential bucket IDs. [32]</li>
+      <li><a href="https://research.google.com/pubs/archive/44824.pdf" target="_blank" rel="noopener">Google, Maglev: A Fast and Reliable Software Network Load Balancer</a> — consistent assignment with a lookup-table approach. [33]</li>
+      <li><a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" target="_blank" rel="noopener">Envoy load-balancing documentation</a> — a current engineering example of Maglev and ring-hash choices. [36]</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+(() => {
+  // ---------- Shared deterministic hash helpers ----------
+  function hash32(str, seed = 2166136261) {
+    let h = seed >>> 0;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+      h ^= h >>> 13;
+      h = Math.imul(h, 0x5bd1e995);
+    }
+    h ^= h >>> 16;
+    return h >>> 0;
+  }
+
+  function weakHash(str, mode) {
+    if (mode === "length") return str.length >>> 0;
+    if (mode === "sum") {
+      let sum = 0;
+      for (const ch of str) sum += ch.charCodeAt(0);
+      return sum >>> 0;
+    }
+    return hash32(str);
+  }
+
+  function hash64Like(str, seed = 0) {
+    const hi = BigInt(hash32(str, 2166136261 ^ seed));
+    const lo = BigInt(hash32(str + "|salt", 0x9e3779b9 ^ seed));
+    return (hi << 32n) | lo;
+  }
+
+  // ---------- Exact table ----------
+  class DemoHashTable {
+    constructor(capacity = 8, strategy = "chaining", mode = "mix") {
+      this.capacity = capacity;
+      this.strategy = strategy;
+      this.mode = mode;
+      this.size = 0;
+      this.slots = Array.from({length: capacity}, () => strategy === "chaining" ? [] : null);
+      this.tombstone = { tombstone: true };
+      this.last = { probes: 0, start: -1, inspected: [], hit: -1 };
+      this.totalMoves = 0;
+    }
+
+    index(key) {
+      return weakHash(String(key), this.mode) % this.capacity;
+    }
+
+    set(key, value) {
+      if ((this.size + 1) / this.capacity > (this.strategy === "linear" ? 0.68 : 0.9)) {
+        this.resize(this.capacity * 2);
+      }
+      this.last = { probes: 0, start: this.index(key), inspected: [], hit: -1 };
+
+      if (this.strategy === "chaining") {
+        const i = this.index(key);
+        const bucket = this.slots[i];
+        this.last.probes = bucket.length + 1;
+        this.last.inspected = [i];
+        const existing = bucket.find(e => e.key === key);
+        if (existing) {
+          existing.value = value;
+          this.last.hit = i;
+          return { updated: true, resized: false };
+        }
+        bucket.push({key, value});
+        this.size++;
+        this.last.hit = i;
+        return { updated: false, resized: false };
+      }
+
+      let i = this.index(key);
+      let firstTombstone = -1;
+      for (let steps = 0; steps < this.capacity; steps++) {
+        this.last.probes++;
+        this.last.inspected.push(i);
+        const slot = this.slots[i];
+        if (slot === null) {
+          const target = firstTombstone >= 0 ? firstTombstone : i;
+          this.slots[target] = {key, value};
+          this.size++;
+          this.last.hit = target;
+          return { updated: false, resized: false };
+        }
+        if (slot === this.tombstone) {
+          if (firstTombstone < 0) firstTombstone = i;
+        } else if (slot.key === key) {
+          slot.value = value;
+          this.last.hit = i;
+          return { updated: true, resized: false };
+        }
+        i = (i + 1) % this.capacity;
+      }
+      this.resize(this.capacity * 2);
+      return this.set(key, value);
+    }
+
+    get(key) {
+      this.last = { probes: 0, start: this.index(key), inspected: [], hit: -1 };
+      if (this.strategy === "chaining") {
+        const i = this.index(key);
+        this.last.inspected = [i];
+        const bucket = this.slots[i];
+        this.last.probes = bucket.length;
+        const found = bucket.find(e => e.key === key);
+        if (found) this.last.hit = i;
+        return found || null;
+      }
+      let i = this.index(key);
+      for (let steps = 0; steps < this.capacity; steps++) {
+        this.last.probes++;
+        this.last.inspected.push(i);
+        const slot = this.slots[i];
+        if (slot === null) return null;
+        if (slot !== this.tombstone && slot.key === key) {
+          this.last.hit = i;
+          return slot;
+        }
+        i = (i + 1) % this.capacity;
+      }
+      return null;
+    }
+
+    delete(key) {
+      this.last = { probes: 0, start: this.index(key), inspected: [], hit: -1 };
+      if (this.strategy === "chaining") {
+        const i = this.index(key);
+        const bucket = this.slots[i];
+        this.last.inspected = [i];
+        this.last.probes = bucket.length;
+        const at = bucket.findIndex(e => e.key === key);
+        if (at < 0) return false;
+        bucket.splice(at, 1);
+        this.size--;
+        this.last.hit = i;
+        return true;
+      }
+      let i = this.index(key);
+      for (let steps = 0; steps < this.capacity; steps++) {
+        this.last.probes++;
+        this.last.inspected.push(i);
+        const slot = this.slots[i];
+        if (slot === null) return false;
+        if (slot !== this.tombstone && slot.key === key) {
+          this.slots[i] = this.tombstone;
+          this.size--;
+          this.last.hit = i;
+          return true;
+        }
+        i = (i + 1) % this.capacity;
+      }
+      return false;
+    }
+
+    resize(newCapacity) {
+      const entries = [];
+      if (this.strategy === "chaining") {
+        this.slots.forEach(bucket => bucket.forEach(e => entries.push(e)));
+      } else {
+        this.slots.forEach(slot => {
+          if (slot && slot !== this.tombstone) entries.push(slot);
+        });
+      }
+      this.capacity = newCapacity;
+      this.slots = Array.from({length: newCapacity}, () => this.strategy === "chaining" ? [] : null);
+      this.size = 0;
+      this.totalMoves += entries.length;
+      for (const {key, value} of entries) this.insertDuringResize(key, value);
+    }
+
+    insertDuringResize(key, value) {
+      if (this.strategy === "chaining") {
+        this.slots[this.index(key)].push({key, value});
+        this.size++;
+        return;
+      }
+      let i = this.index(key);
+      while (this.slots[i] !== null) i = (i + 1) % this.capacity;
+      this.slots[i] = {key, value};
+      this.size++;
+    }
+  }
+
+  let table = new DemoHashTable();
+
+  const el = id => document.getElementById(id);
+  const bucketGrid = el("bucketGrid");
+
+  function renderTable() {
+    el("capMetric").textContent = table.capacity;
+    el("sizeMetric").textContent = table.size;
+    el("loadMetric").textContent = (table.size / table.capacity).toFixed(2);
+    el("probeMetric").textContent = table.last.probes;
+    bucketGrid.innerHTML = "";
+
+    for (let i = 0; i < table.capacity; i++) {
+      const div = document.createElement("div");
+      div.className = "bucket";
+      if (i === table.last.start) div.classList.add("active");
+      const title = document.createElement("div");
+      title.className = "idx";
+      title.textContent = `slot ${i}`;
+      div.appendChild(title);
+
+      const inspected = table.last.inspected.includes(i);
+      if (table.strategy === "chaining") {
+        const bucket = table.slots[i];
+        if (!bucket.length) div.innerHTML += `<div class="small">empty</div>`;
+        for (const entry of bucket) {
+          const span = document.createElement("span");
+          span.className = "entry";
+          if (inspected) span.classList.add("probe");
+          if (i === table.last.hit) span.classList.add("hit");
+          span.textContent = `${entry.key}:${entry.value}`;
+          div.appendChild(span);
+        }
+      } else {
+        const slot = table.slots[i];
+        if (slot === null) {
+          div.innerHTML += `<div class="small">empty</div>`;
+        } else if (slot === table.tombstone) {
+          div.innerHTML += `<span class="entry deleted">deleted</span>`;
+        } else {
+          const span = document.createElement("span");
+          span.className = "entry";
+          if (inspected) span.classList.add("probe");
+          if (i === table.last.hit) span.classList.add("hit");
+          span.textContent = `${slot.key}:${slot.value}`;
+          div.appendChild(span);
+        }
+      }
+      bucketGrid.appendChild(div);
+    }
+  }
+
+  function status(message) {
+    el("tableStatus").textContent = message;
+  }
+
+  function resetTable() {
+    table = new DemoHashTable(
+      Number(el("capacity").value),
+      el("strategy").value,
+      el("hashMode").value
+    );
+    renderTable();
+    status("New empty table.");
+  }
+
+  el("resetTable").onclick = resetTable;
+
+  el("insertBtn").onclick = () => {
+    const key = el("keyInput").value.trim();
+    const value = el("valueInput").value.trim() || "∅";
+    if (!key) return status("Enter a key first.");
+    const beforeCap = table.capacity;
+    const result = table.set(key, value);
+    renderTable();
+    const resizeText = table.capacity !== beforeCap
+      ? ` Capacity doubled from ${beforeCap} to ${table.capacity}; ${table.size - 1} entries were reinserted.`
+      : "";
+    status(`${result.updated ? "Updated" : "Inserted"} "${key}" in ${table.last.probes} probe(s).${resizeText}`);
+  };
+
+  el("findBtn").onclick = () => {
+    const key = el("keyInput").value.trim();
+    if (!key) return status("Enter a key first.");
+    const found = table.get(key);
+    renderTable();
+    status(found
+      ? `Found "${key}" → "${found.value}" after ${table.last.probes} probe(s).`
+      : `"${key}" is absent; examined ${table.last.probes} probe(s).`);
+  };
+
+  el("deleteBtn").onclick = () => {
+    const key = el("keyInput").value.trim();
+    if (!key) return status("Enter a key first.");
+    const deleted = table.delete(key);
+    renderTable();
+    status(deleted
+      ? `Deleted "${key}" after ${table.last.probes} probe(s).`
+      : `"${key}" was not found.`);
+  };
+
+  el("clearBtn").onclick = resetTable;
+
+  el("randomBtn").onclick = () => {
+    const before = table.capacity;
+    for (let i = 0; i < 8; i++) {
+      const k = "key-" + Math.random().toString(36).slice(2, 7);
+      table.set(k, Math.floor(Math.random() * 100));
+    }
+    renderTable();
+    status(`Inserted 8 random keys. Capacity is ${table.capacity}${table.capacity !== before ? " after resizing." : "."}`);
+  };
+
+  ["strategy", "hashMode", "capacity"].forEach(id => {
+    el(id).addEventListener("change", () => status("Configuration changed. Click “Reset configuration” to apply it."));
+  });
+
+  // ---------- Similarity hashing ----------
+  function tokenize(text) {
+    return (text.toLowerCase().match(/[a-z0-9]+/g) || []);
+  }
+
+  function shingles(text, size) {
+    const t = tokenize(text);
+    const set = new Set();
+    if (!t.length) return set;
+    if (t.length < size) {
+      set.add(t.join(" "));
+      return set;
+    }
+    for (let i = 0; i <= t.length - size; i++) set.add(t.slice(i, i + size).join(" "));
+    return set;
+  }
+
+  function jaccard(a, b) {
+    let inter = 0;
+    for (const x of a) if (b.has(x)) inter++;
+    const union = a.size + b.size - inter;
+    return union ? inter / union : 1;
+  }
+
+  function minhashSignature(set, k) {
+    const sig = [];
+    for (let i = 0; i < k; i++) {
+      let min = 0xffffffff;
+      for (const item of set) {
+        const h = hash32(item, (0x9e3779b9 ^ Math.imul(i + 1, 2654435761)) >>> 0);
+        if (h < min) min = h;
+      }
+      sig.push(min);
+    }
+    return sig;
+  }
+
+  function bagOfWords(text) {
+    const bag = new Map();
+    for (const w of tokenize(text)) bag.set(w, (bag.get(w) || 0) + 1);
+    return bag;
+  }
+
+  function simhash(text, bits) {
+    const bag = bagOfWords(text);
+    const acc = Array(bits).fill(0);
+    for (const [term, count] of bag) {
+      for (let block = 0; block < Math.ceil(bits / 32); block++) {
+        const h = hash32(term, 0x811c9dc5 ^ block * 0x9e3779b9);
+        for (let bit = 0; bit < Math.min(32, bits - block * 32); bit++) {
+          acc[block * 32 + bit] += ((h >>> bit) & 1) ? count : -count;
+        }
+      }
+    }
+    return acc.map(x => x >= 0 ? 1 : 0);
+  }
+
+  function hamming(a, b) {
+    let d = 0;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) d++;
+    return d;
+  }
+
+  el("compareDocs").onclick = () => {
+    const a = el("docA").value;
+    const b = el("docB").value;
+    const shingleSize = Math.max(1, Number(el("shingleSize").value) || 2);
+    const k = Math.max(8, Number(el("minhashK").value) || 64);
+    const bits = Number(el("simhashBits").value);
+
+    const A = shingles(a, shingleSize);
+    const B = shingles(b, shingleSize);
+    const exact = jaccard(A, B);
+    const sigA = minhashSignature(A, k);
+    const sigB = minhashSignature(B, k);
+    let matches = 0;
+    for (let i = 0; i < k; i++) if (sigA[i] === sigB[i]) matches++;
+    const minEst = matches / k;
+
+    const simA = simhash(a, bits);
+    const simB = simhash(b, bits);
+    const d = hamming(simA, simB);
+    const angle = Math.PI * d / bits;
+    const cosineEstimate = Math.cos(angle);
+
+    el("jaccardMetric").textContent = exact.toFixed(3);
+    el("minhashMetric").textContent = `${minEst.toFixed(3)} (${matches}/${k})`;
+    el("hammingMetric").textContent = `${d}/${bits}`;
+    el("cosineMetric").textContent = cosineEstimate.toFixed(3);
+    el("similarityStatus").textContent =
+      `A has ${A.size} shingles; B has ${B.size}. MinHash is a randomized estimate, so changing the signature length changes its variance.`;
+  };
+
+  // ---------- Consistent hashing simulation ----------
+  let servers = ["server-A", "server-B", "server-C", "server-D"];
+  let previousAssignment = null;
+
+  function keysFor(n) {
+    return Array.from({length: n}, (_, i) => `customer:${i}:session:${hash32("seed-" + i)}`);
+  }
+
+  function moduloAssign(key, nodes) {
+    return nodes[hash32(key) % nodes.length];
+  }
+
+  function ringPoints(nodes, vnodes) {
+    const points = [];
+    nodes.forEach(node => {
+      for (let i = 0; i < vnodes; i++) {
+        points.push({ p: hash32(`${node}#${i}`), node });
+      }
+    });
+    points.sort((a, b) => a.p - b.p);
+    return points;
+  }
+
+  function ringAssign(key, points) {
+    const h = hash32(key);
+    let lo = 0, hi = points.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (points[mid].p < h) lo = mid + 1;
+      else hi = mid;
+    }
+    return points[lo % points.length].node;
+  }
+
+  function jumpConsistentHash(key, buckets) {
+    let key64 = hash64Like(key);
+    let b = -1, j = 0;
+    while (j < buckets) {
+      b = j;
+      key64 = key64 * 2862933555777941757n + 1n;
+      j = Math.floor((Number(b + 1) * 2147483648) / Number((key64 >> 33n) + 1n));
+    }
+    return b;
+  }
+
+  function jumpAssign(key, nodes) {
+    return nodes[jumpConsistentHash(key, nodes.length)];
+  }
+
+  function hrwAssign(key, nodes) {
+    let bestNode = nodes[0];
+    let best = -1n;
+    for (const node of nodes) {
+      const score = hash64Like(`${key}|${node}`, 0x515151);
+      if (score > best) {
+        best = score;
+        bestNode = node;
+      }
+    }
+    return bestNode;
+  }
+
+  function assignAll(nodes, algo, count, vnodes) {
+    const keys = keysFor(count);
+    let ring = null;
+    if (algo === "ring") ring = ringPoints(nodes, vnodes);
+    const assignments = new Map();
+    for (const key of keys) {
+      let node;
+      if (algo === "mod") node = moduloAssign(key, nodes);
+      if (algo === "ring") node = ringAssign(key, ring);
+      if (algo === "jump") node = jumpAssign(key, nodes);
+      if (algo === "hrw") node = hrwAssign(key, nodes);
+      assignments.set(key, node);
+    }
+    return {assignments, ring};
+  }
+
+  function drawRing(ring, nodes) {
+    const canvas = el("ringCanvas");
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width, h = canvas.height;
+    const cx = w / 2, cy = h / 2, r = 225;
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.strokeStyle = "#315071";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const colors = ["#6ee7ff", "#9ef01a", "#ffd166", "#c9a7ff", "#ff8f70", "#64e6a7", "#f397ff"];
+    const colorOf = new Map(nodes.map((n, i) => [n, colors[i % colors.length]]));
+
+    if (!ring || !ring.length) {
+      ctx.fillStyle = "#a9bad3";
+      ctx.font = "17px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Ring visualization applies to consistent hashing.", cx, cy);
+      return;
+    }
+
+    const shown = ring.length > 160 ? ring.filter((_, i) => i % Math.ceil(ring.length / 160) === 0) : ring;
+    for (const point of shown) {
+      const angle = (point.p / 4294967296) * Math.PI * 2 - Math.PI / 2;
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      ctx.fillStyle = colorOf.get(point.node);
+      ctx.beginPath();
+      ctx.arc(x, y, 3.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    nodes.forEach((node, i) => {
+      const angle = -Math.PI / 2 + i * (Math.PI * 2 / nodes.length);
+      const x = cx + (r + 42) * Math.cos(angle);
+      const y = cy + (r + 42) * Math.sin(angle);
+      ctx.fillStyle = colorOf.get(node);
+      ctx.font = "bold 14px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(node, x, y);
+    });
+
+    ctx.fillStyle = "#dceaff";
+    ctx.font = "bold 18px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`${ring.length} virtual positions`, cx, cy - 8);
+    ctx.fillStyle = "#a9bad3";
+    ctx.font = "13px sans-serif";
+    ctx.fillText("key walks clockwise to the next position", cx, cy + 18);
+  }
+
+  function runDistribution(reason = "Simulation complete.") {
+    const count = Math.max(100, Number(el("keyCount").value) || 1200);
+    const vnodes = Math.max(1, Number(el("vnodes").value) || 40);
+    const algo = el("distAlgo").value;
+
+    const current = assignAll(servers, algo, count, vnodes);
+    const counts = new Map(servers.map(s => [s, 0]));
+    current.assignments.forEach(s => counts.set(s, counts.get(s) + 1));
+
+    let moved = null;
+    if (previousAssignment) {
+      let changed = 0;
+      for (const [key, server] of current.assignments) {
+        if (previousAssignment.assignments.get(key) !== server) changed++;
+      }
+      moved = changed / count;
+    }
+
+    const max = Math.max(...counts.values());
+    const maxShare = max / count;
+    let work = "";
+    if (algo === "mod") work = "O(1) per key";
+    if (algo === "ring") work = `O(log ${servers.length * vnodes}) per key`;
+    if (algo === "jump") work = `expected O(log ${servers.length}) per key`;
+    if (algo === "hrw") work = `O(${servers.length}) per key`;
+
+    el("serverMetric").textContent = servers.length;
+    el("movedMetric").textContent = moved === null ? "—" : `${(moved * 100).toFixed(1)}%`;
+    el("maxShareMetric").textContent = `${(maxShare * 100).toFixed(1)}%`;
+    el("workMetric").textContent = work;
+
+    const holder = el("distributionBars");
+    holder.innerHTML = "";
+    counts.forEach((countForServer, node) => {
+      const row = document.createElement("div");
+      row.className = "dist-row";
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = node;
+      const track = document.createElement("div");
+      track.style.background = "#07111d";
+      track.style.border = "1px solid #1d3652";
+      track.style.borderRadius = "999px";
+      track.style.overflow = "hidden";
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      bar.style.width = `${Math.max(1, countForServer / count * 100)}%`;
+      track.appendChild(bar);
+      const num = document.createElement("div");
+      num.className = "count";
+      num.textContent = `${countForServer}`;
+      row.append(name, track, num);
+      holder.appendChild(row);
+    });
+
+    drawRing(algo === "ring" ? current.ring : null, servers);
+    el("distributionStatus").textContent = `${reason} ${moved === null ? "Now add or remove a server to measure movement." : "Movement compares this membership with the immediately previous membership."}`;
+    previousAssignment = current;
+  }
+
+  el("runDistribution").onclick = () => runDistribution("Simulation complete.");
+  el("addServer").onclick = () => {
+    const letter = String.fromCharCode(65 + servers.length);
+    servers.push(`server-${letter}`);
+    runDistribution(`Added server-${letter}.`);
+  };
+  el("removeServer").onclick = () => {
+    if (servers.length <= 2) {
+      el("distributionStatus").textContent = "Keep at least two servers for this demonstration.";
+      return;
+    }
+    const removed = servers.pop();
+    runDistribution(`Removed ${removed}.`);
+  };
+  el("distAlgo").addEventListener("change", () => {
+    previousAssignment = null;
+    runDistribution("Algorithm changed; a fresh baseline was created.");
+  });
+
+  // Initial render
+  renderTable();
+  runDistribution("Initial simulation complete.");
+})();
+</script>
+</body>
+</html>
